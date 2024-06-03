@@ -31,7 +31,7 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 		requestHeader := ParseHeader(buf[:size])
-		question := ParseQuestion(buf[:size])
+		questions := ParseQuestions(buf[:size], requestHeader.QDCOUNT)
 
 		rcode := uint8(4)
 		if requestHeader.OPCODE == 0 {
@@ -48,17 +48,19 @@ func main() {
 			RA:      0,
 			Z:       0,
 			RCODE:   rcode,
-			QDCOUNT: 1,
+			QDCOUNT: 0,
 			ANCOUNT: 0,
-			NSCOUNT: 0,
-			ARCOUNT: 0,
+			NSCOUNT: requestHeader.NSCOUNT,
+			ARCOUNT: requestHeader.ARCOUNT,
 		}
 
 		response := MakeMessage(header)
-		response.AddQuestion(question)
 
-		answer := MakeAnswer(question.Name, []byte("\x08\x08\x08\x08"))
-		response.AddAnswer(answer)
+		for _, question := range questions {
+			response.AddQuestion(question)
+			answer := MakeAnswer(question.Name, []byte("\x08\x08\x08\x08"))
+			response.AddAnswer(answer)
+		}
 
 		_, err = udpConn.WriteToUDP(response.Bytes(), source)
 		if err != nil {
