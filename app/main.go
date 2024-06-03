@@ -31,11 +31,17 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 
-		response := []byte{}
+		response := make([]byte, 12)
+		copy(response, buf[:12])
+		response[2] = flipIndicator(response[2])
 
 		_, err = udpConn.WriteToUDP(response, source)
 		if err != nil {
 			fmt.Println("Failed to send response:", err)
 		}
 	}
+}
+
+func flipIndicator(b byte) byte {
+	return b | 0b10000000
 }
