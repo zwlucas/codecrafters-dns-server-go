@@ -30,19 +30,25 @@ func main() {
 
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
+		requestHeader := ParseHeader(buf[:size])
+
+		rcode := uint8(4)
+		if requestHeader.OPCODE == 0 {
+			rcode = 0
+		}
 
 		header := DNSHeader{
-			ID:      1234,
+			ID:      requestHeader.ID,
 			QR:      1,
-			OPCODE:  1,
+			OPCODE:  requestHeader.OPCODE,
 			AA:      0,
 			TC:      0,
-			RD:      0,
+			RD:      requestHeader.RD,
 			RA:      0,
 			Z:       0,
-			RCODE:   0,
+			RCODE:   rcode,
 			QDCOUNT: 1,
-			ANCOUNT: 1,
+			ANCOUNT: 0,
 			NSCOUNT: 0,
 			ARCOUNT: 0,
 		}

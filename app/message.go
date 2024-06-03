@@ -89,3 +89,21 @@ func (m *DNSMessage) AddAnswer(a DNSAnswer) {
 func MakeAnswer(name []byte, rdata []byte) DNSAnswer {
 	return DNSAnswer{Name: name, Type: 1, Class: 1, TTL: 60, RDLength: uint16(len(rdata)), RData: rdata}
 }
+
+func ParseHeader(buf []byte) DNSHeader {
+	return DNSHeader{
+		ID:      binary.BigEndian.Uint16(buf[0:2]),
+		QR:      uint8(buf[2] >> 7),
+		OPCODE:  uint8(buf[2] >> 3 & 0x0f),
+		AA:      uint8(buf[2] >> 2 & 0x01),
+		TC:      uint8(buf[2] >> 1 & 0x01),
+		RD:      uint8(buf[2] & 0x01),
+		RA:      uint8(buf[3] >> 7),
+		Z:       uint8(buf[3] >> 4 & 0x07),
+		RCODE:   uint8(buf[3] & 0x0f),
+		QDCOUNT: binary.BigEndian.Uint16(buf[4:6]),
+		ANCOUNT: binary.BigEndian.Uint16(buf[6:8]),
+		NSCOUNT: binary.BigEndian.Uint16(buf[8:10]),
+		ARCOUNT: binary.BigEndian.Uint16(buf[10:12]),
+	}
+}
