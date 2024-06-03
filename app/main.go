@@ -31,17 +31,28 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 
-		response := make([]byte, 12)
-		copy(response, buf[:12])
-		response[2] = flipIndicator(response[2])
+		header := DNSHeader{
+			ID:      1234,
+			QR:      1,
+			OPCODE:  1,
+			AA:      0,
+			TC:      0,
+			RD:      0,
+			RA:      0,
+			Z:       0,
+			RCODE:   0,
+			QDCOUNT: 1,
+			ANCOUNT: 1,
+			NSCOUNT: 0,
+			ARCOUNT: 0,
+		}
 
-		_, err = udpConn.WriteToUDP(response, source)
+		response := MakeMessage(header)
+		response.AddQuestion([]byte("\x0ccodecrafters\x02io\x00"))
+
+		_, err = udpConn.WriteToUDP(response.bytes(), source)
 		if err != nil {
 			fmt.Println("Failed to send response:", err)
 		}
 	}
-}
-
-func flipIndicator(b byte) byte {
-	return b | 0b10000000
 }
