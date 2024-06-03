@@ -136,7 +136,7 @@ func MakeQuestion(name []byte) DNSQuestion {
 	return DNSQuestion{Name: name, Type: 1, Class: 1}
 }
 
-func ParseQuestions(buf []byte, questionCount uint16) []DNSQuestion {
+func ParseQuestions(buf []byte, questionCount uint16) ([]DNSQuestion, int) {
 	questions := []DNSQuestion{}
 	offset := 12
 
@@ -148,7 +148,7 @@ func ParseQuestions(buf []byte, questionCount uint16) []DNSQuestion {
 		offset += len + 1 + 4
 	}
 
-	return questions
+	return questions, offset
 }
 
 func ParseDomain(data []byte, source []byte) []byte {
@@ -189,4 +189,46 @@ func decodeDNSPacket(packet []byte, source []byte) string {
 	}
 
 	return strings.Join(labels, ".")
+}
+
+func ParseAnswers(buf []byte, questionCount uint16, answerCount uint16) []DNSAnswer {
+	answers := []DNSAnswer{}
+	_, offset := ParseQuestions(buf, questionCount)
+
+	for i := 0; i < int(answerCount); i++ {
+		len := bytes.Index(buf[offset:], []byte{0})
+		label := ParseDomain(buf[offset:offset+len+1], buf)
+		offset += len + 1
+
+		answer := DNSAnswer{
+			Name: label,
+		}
+
+		answer.Type = extractUint16(buf, &offset)
+		answer.Class = extractUint16(buf, &offset)
+		answer.TTL = extractUint32(buf, &offset)
+		answer.RDLength = extractUint16(buf, &offset)
+		answer.RData = extractBytes(buf, &offset, int(answer.RDLength))
+		answers = append(answers, answer)
+	}
+
+	return answers
+}
+
+func extractBytes(src []byte, offset *int, length int) []byte {
+	result := src[*offset : *offset+length]
+	*offset += length
+	return result
+}
+
+func extractUint16(src []byte, offset *int) uint16 {
+	result := []byte{src[*offset], src[*offset+1]}
+	*offset += 2
+	return binary.BigEndian.Uint16(result[:])
+}
+
+func extractUint32(src []byte, offset *int) uint32 {
+	result := [4]byte{src[*offset], src[*offset+1], src[*offset+2], src[*offset+3]}
+	*offset += 4
+	return binary.BigEndian.Uint32(result[:])
 }

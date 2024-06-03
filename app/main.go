@@ -1,11 +1,16 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 )
 
 func main() {
+	var resolver string
+	flag.StringVar(&resolver, "resolver", "1.1.1.1:53", "DNS resolver to forward queries to")
+	flag.Parse()
+
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:2053")
 	if err != nil {
 		fmt.Println("Failed to resol[]byteve UDP address:", err)
@@ -31,7 +36,9 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 		requestHeader := ParseHeader(buf[:size])
-		questions := ParseQuestions(buf[:size], requestHeader.QDCOUNT)
+		questions, _ := ParseQuestions(buf[:size], requestHeader.QDCOUNT)
+
+		answers := ForwardQuestions(resolver, questions, requestHeader.ID)
 
 		rcode := uint8(4)
 		if requestHeader.OPCODE == 0 {
@@ -58,7 +65,9 @@ func main() {
 
 		for _, question := range questions {
 			response.AddQuestion(question)
-			answer := MakeAnswer(question.Name, []byte("\x08\x08\x08\x08"))
+		}
+
+		for _, answer := range answers {
 			response.AddAnswer(answer)
 		}
 
