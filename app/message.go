@@ -1,6 +1,9 @@
 package main
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"strings"
+)
 
 type DNSHeader struct {
 	ID      uint16
@@ -33,6 +36,12 @@ type DNSAnswer struct {
 	RData    []byte
 }
 
+type DNSQuestion struct {
+	Name  []byte
+	Type  uint16
+	Class uint16
+}
+
 func (m *DNSHeader) Bytes() []byte {
 	bytes := make([]byte, 12)
 	binary.BigEndian.PutUint16(bytes[0:], m.ID)
@@ -50,10 +59,8 @@ func (m *DNSHeader) combineFlags() uint16 {
 		uint16(m.RCODE)
 }
 
-func (m *DNSMessage) AddQuestion(q []byte) {
-	m.Question = q
-	m.Question = binary.BigEndian.AppendUint16(m.Question, 1)
-	m.Question = binary.BigEndian.AppendUint16(m.Question, 1)
+func (m *DNSMessage) AddQuestion(q DNSQuestion) {
+	m.Question = q.Bytes()
 }
 
 func (m *DNSMessage) Bytes() []byte {
@@ -77,13 +84,21 @@ func (a *DNSAnswer) Bytes() []byte {
 	return bytes
 }
 
-func MakeMessage(header DNSHeader) DNSMessage {
-	return DNSMessage{Header: header, Question: []byte{}, Answer: DNSAnswer{}}
-}
-
 func (m *DNSMessage) AddAnswer(a DNSAnswer) {
 	m.Answer = a
 	m.Header.ANCOUNT = 1
+}
+
+func (q *DNSQuestion) Bytes() []byte {
+	bytes := []byte{}
+	bytes = append(bytes, q.Name...)
+	bytes = binary.BigEndian.AppendUint16(bytes, q.Type)
+	bytes = binary.BigEndian.AppendUint16(bytes, q.Class)
+	return bytes
+}
+
+func MakeMessage(header DNSHeader) DNSMessage {
+	return DNSMessage{Header: header, Question: []byte{}, Answer: DNSAnswer{}}
 }
 
 func MakeAnswer(name []byte, rdata []byte) DNSAnswer {
@@ -106,4 +121,50 @@ func ParseHeader(buf []byte) DNSHeader {
 		NSCOUNT: binary.BigEndian.Uint16(buf[8:10]),
 		ARCOUNT: binary.BigEndian.Uint16(buf[10:12]),
 	}
+}
+
+func MakeQuestion(name []byte) DNSQuestion {
+	return DNSQuestion{Name: name, Type: 1, Class: 1}
+}
+
+func ParseQuestion(buf []byte) DNSQuestion {
+	return MakeQuestion(ParseDomain(buf))
+}
+
+func ParseDomain(data []byte) []byte {
+	domainByte := data[12:]
+	domain := decodeDNSPacket(domainByte)
+	segments := strings.Split(domain, ".")
+	var encodedDomain []byte
+
+	for _, segment := range segments {
+		encodedDomain = append(encodedDomain, byte(len(segment)))
+		encodedDomain = append(encodedDomain, []byte(segment)...)
+	}
+
+	encodedDomain = append(encodedDomain, 0x00)
+	return encodedDomain
+}
+
+func decodeDNSPacket(packet []byte) string {
+	var domain string
+	i := 0
+
+	for i < len(packet) && packet[i] != 0 {
+		labelLength := int(packet[i])
+
+		i++
+		if i+labelLength > len(packet) {
+			break
+		}
+
+		domain += string(packet[i : i+labelLength])
+
+		i += labelLength
+		if i < len(packet) && packet[i] != 0 {
+			domain += "."
+		}
+	}
+
+	return domain
 }

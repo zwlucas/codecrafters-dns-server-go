@@ -8,7 +8,7 @@ import (
 func main() {
 	udpAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:2053")
 	if err != nil {
-		fmt.Println("Failed to resolve UDP address:", err)
+		fmt.Println("Failed to resol[]byteve UDP address:", err)
 		return
 	}
 
@@ -31,6 +31,7 @@ func main() {
 		receivedData := string(buf[:size])
 		fmt.Printf("Received %d bytes from %s: %s\n", size, source, receivedData)
 		requestHeader := ParseHeader(buf[:size])
+		question := ParseQuestion(buf[:size])
 
 		rcode := uint8(4)
 		if requestHeader.OPCODE == 0 {
@@ -54,9 +55,9 @@ func main() {
 		}
 
 		response := MakeMessage(header)
-		response.AddQuestion([]byte("\x0ccodecrafters\x02io\x00"))
+		response.AddQuestion(question)
 
-		answer := MakeAnswer([]byte("\x0ccodecrafters\x02io\x00"), []byte("\x08\x08\x08\x08"))
+		answer := MakeAnswer(question.Name, []byte("\x08\x08\x08\x08"))
 		response.AddAnswer(answer)
 
 		_, err = udpConn.WriteToUDP(response.Bytes(), source)
