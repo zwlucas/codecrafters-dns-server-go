@@ -21,6 +21,16 @@ type DNSHeader struct {
 type DNSMessage struct {
 	Header   DNSHeader
 	Question []byte
+	Answer   DNSAnswer
+}
+
+type DNSAnswer struct {
+	Name     []byte
+	Type     uint16
+	Class    uint16
+	TTL      uint32
+	RDLength uint16
+	RData    []byte
 }
 
 func (m *DNSHeader) Bytes() []byte {
@@ -46,14 +56,36 @@ func (m *DNSMessage) AddQuestion(q []byte) {
 	m.Question = binary.BigEndian.AppendUint16(m.Question, 1)
 }
 
-func (m *DNSMessage) bytes() []byte {
+func (m *DNSMessage) Bytes() []byte {
 	headerBytes := m.Header.Bytes()
-	bytes := make([]byte, len(headerBytes)+len(m.Question))
-	copy(bytes, headerBytes)
-	copy(bytes[len(headerBytes):], m.Question)
+	answerBytes := m.Answer.Bytes()
+	bytes := []byte{}
+	bytes = append(bytes, headerBytes...)
+	bytes = append(bytes, m.Question...)
+	bytes = append(bytes, answerBytes...)
+	return bytes
+}
+
+func (a *DNSAnswer) Bytes() []byte {
+	bytes := []byte{}
+	bytes = append(bytes, a.Name...)
+	bytes = binary.BigEndian.AppendUint16(bytes, a.Type)
+	bytes = binary.BigEndian.AppendUint16(bytes, a.Class)
+	bytes = binary.BigEndian.AppendUint32(bytes, a.TTL)
+	bytes = binary.BigEndian.AppendUint16(bytes, a.RDLength)
+	bytes = binary.BigEndian.AppendUint32(bytes, binary.BigEndian.Uint32(a.RData))
 	return bytes
 }
 
 func MakeMessage(header DNSHeader) DNSMessage {
-	return DNSMessage{Header: header, Question: []byte{}}
+	return DNSMessage{Header: header, Question: []byte{}, Answer: DNSAnswer{}}
+}
+
+func (m *DNSMessage) AddAnswer(a DNSAnswer) {
+	m.Answer = a
+	m.Header.ANCOUNT = 1
+}
+
+func MakeAnswer(name []byte, rdata []byte) DNSAnswer {
+	return DNSAnswer{Name: name, Type: 1, Class: 1, TTL: 60, RDLength: uint16(len(rdata)), RData: rdata}
 }

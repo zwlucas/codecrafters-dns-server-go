@@ -50,7 +50,10 @@ func main() {
 		response := MakeMessage(header)
 		response.AddQuestion([]byte("\x0ccodecrafters\x02io\x00"))
 
-		_, err = udpConn.WriteToUDP(response.bytes(), source)
+		answer := MakeAnswer([]byte("\x0ccodecrafters\x02io\x00"), []byte("\x08\x08\x08\x08"))
+		response.AddAnswer(answer)
+
+		_, err = udpConn.WriteToUDP(response.Bytes(), source)
 		if err != nil {
 			fmt.Println("Failed to send response:", err)
 		}
